@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriSmart - Smart Crop Advisor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        :root {
+            --bg: #040e04;
+            --bg-card: rgba(8, 36, 8, 0.78);
+            --fg: #e4f5e4;
+            --fg-muted: #7aad7a;
+            --accent: #4ade80;
+            --accent-gold: #f59e0b;
+            --border: rgba(74, 222, 128, 0.13);
+            --glow: rgba(74, 222, 128, 0.25);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+        h1,h2,h3,h4,h5 { font-family: 'Sora', sans-serif; }
+        #bg3d {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0; pointer-events: none;
+        }
+        #app { position: relative; z-index: 1; min-height: 100vh; }
+        .header-line {
+            height: 2px;
+            background: linear-gradient(90deg, transparent 5%, #4ade80 30%, #f59e0b 70%, transparent 95%);
+        }
+        .glass {
+            background: var(--bg-card);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            transition: all 0.35s cubic-bezier(0.4,0,0.2,1);
+        }
+        .glass:hover {
+            border-color: rgba(74,222,128,0.3);
+            box-shadow: 0 0 28px rgba(74,222,128,0.07);
+            transform: translateY(-2px);
+        }
+        .glass-gold { border-color: rgba(245,158,11,0.3); }
+        .glass-gold:hover {
+            border-color: rgba(245,158,11,0.5);
+            box-shadow: 0 0 28px rgba(245,158,11,0.1);
+        }
+        .custom-select {
+            appearance: none; -webkit-appearance: none;
+            background: rgba(8,36,8,0.6);
+            border: 1px solid var(--border);
+            color: var(--fg);
+            padding: 14px 44px 14px 16px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%234ade80' viewBox='0 0 16 16'%3E%3Cpath d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+        }
+        .custom-select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(74,222,128,0.12);
+        }
+        .custom-select option { background: #0a280a; color: var(--fg); }
+        .btn-main {
+            background: linear-gradient(135deg, #15803d, #4ade80);
+            color: #050f05;
+            font-weight: 700;
+            font-family: 'Sora', sans-serif;
+            padding: 16px 44px;
+            border-radius: 14px;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.4px;
+        }
+        .btn-main::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+            transition: left 0.5s;
+        }
+        .btn-main:hover::before { left: 100%; }
+        .btn-main:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 32px rgba(74,222,128,0.35);
+        }
+        .btn-main:active { transform: translateY(-1px); }
+        .btn-main:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+        .suit-bar {
+            height: 8px; border-radius: 4px;
+            background: rgba(74,222,128,0.08);
+            overflow: visible; position: relative;
+        }
+        .suit-fill {
+            height: 100%; border-radius: 4px;
+            transition: width 1s cubic-bezier(0.4,0,0.2,1);
+        }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(28px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes floatY { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-8px); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulseGlow { 0%,100% { box-shadow: 0 0 15px rgba(74,222,128,0.15); } 50% { box-shadow: 0 0 35px rgba(74,222,128,0.35); } }
+        .anim-up { animation: fadeUp 0.55s ease forwards; opacity: 0; }
+        .anim-float { animation: floatY 3.5s ease-in-out infinite; }
+        .d1 { animation-delay: 0.08s; } .d2 { animation-delay: 0.16s; }
+        .d3 { animation-delay: 0.24s; } .d4 { animation-delay: 0.32s; }
+        .d5 { animation-delay: 0.4s; } .d6 { animation-delay: 0.48s; }
+        .spinner {
+            width: 36px; height: 36px;
+            border: 3px solid rgba(74,222,128,0.15);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        .toast-box {
+            position: fixed; top: 20px; right: 20px; z-index: 9999;
+            padding: 13px 22px; border-radius: 12px;
+            font-size: 14px; font-weight: 500;
+            transform: translateX(130%);
+            transition: transform 0.4s cubic-bezier(0.4,0,0.2,1);
+            max-width: 350px; backdrop-filter: blur(12px);
+        }
+        .toast-box.show { transform: translateX(0); }
+        .toast-err { background: rgba(185,28,28,0.92); border: 1px solid rgba(248,113,113,0.25); color: #fff; }
+        .toast-ok { background: rgba(21,128,61,0.92); border: 1px solid rgba(74,222,128,0.25); color: #fff; }
+        .toast-info { background: rgba(20,60,20,0.95); border: 1px solid var(--border); color: var(--fg); }
+        #result-section {
+            opacity: 0; transform: translateY(24px);
+            transition: all 0.6s cubic-bezier(0.4,0,0.2,1);
+            pointer-events: none; max-height: 0; overflow: hidden;
+        }
+        #result-section.visible { opacity: 1; transform: translateY(0); pointer-events: all; max-height: 9999px; overflow: visible; }
+        .rank-badge {
+            width: 30px; height: 30px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 13px; font-family: 'Sora', sans-serif; flex-shrink: 0;
+        }
+        .tip-row { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; }
+        .tip-icon-box {
+            width: 34px; height: 34px; border-radius: 9px;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #4ade80, #f59e0b);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); margin: 24px 0; }
+        .label-text {
+            font-family: 'Sora', sans-serif; font-size: 12px; font-weight: 600;
+            color: var(--fg-muted); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 7px; display: block;
+        }
+        .fert-tag {
+            display: inline-block; padding: 4px 14px; border-radius: 20px;
+            font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
+        }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: rgba(74,222,128,0.25); border-radius: 3px; }
+        @media (max-width: 640px) {
+            .btn-main { width: 100%; padding: 14px 20px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="bg3d"></canvas>
+
+    <div id="app">
+        <div class="header-line"></div>
+
+        <!-- HEADER -->
+        <header class="py-6 px-4 sm:px-8 flex items-center justify-between max-w-6xl mx-auto">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-green-600 to-emerald-400 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-seedling text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight" style="font-family:'Sora'">AgriSmart</h1>
+                    <p class="text-xs" style="color:var(--fg-muted)">Smart Crop Advisory</p>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-6xl mx-auto px-4 sm:px-8 pb-16">
+
+            <!-- HERO SECTION -->
+            <section class="text-center pt-8 pb-10">
+                <h2 class="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight mb-4" style="font-family:'Sora'">
+                    Find the <span class="gradient-text">Best Crop</span> for Your Land
+                </h2>
+                <p class="text-base sm:text-lg max-w-xl mx-auto" style="color:var(--fg-muted)">
+                    Select your city, season, and soil type — we will recommend the most suitable crop, fertilizer plan, and water requirements for maximum yield.
+                </p>
+            </section>
+
+            <!-- INPUT FORM -->
+            <section class="glass p-6 sm:p-8 max-w-2xl mx-auto mb-12" style="animation: pulseGlow 4s ease-in-out infinite;">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
+                    <div>
+                        <label class="label-text"><i class="fa-solid fa-location-dot mr-1"></i> City / Area</label>
+                        <select id="city-select" class="custom-select">
+                            <option value="">-- Select City --</option>
+                            <option value="karachi">Karachi</option>
+                            <option value="lahore">Lahore</option>
+                            <option value="islamabad">Islamabad</option>
+                            <option value="hyderabad">Hyderabad</option>
+                            <option value="faisalabad">Faisalabad</option>
+                            <option value="multan">Multan</option>
+                            <option value="peshawar">Peshawar</option>
+                            <option value="quetta">Quetta</option>
+                            <option value="sialkot">Sialkot</option>
+                            <option value="rawalpindi">Rawalpindi</option>
+                            <option value="sukkur">Sukkur</option>
+                            <option value="bahawalpur">Bahawalpur</option>
+                            <option value="sargodha">Sargodha</option>
+                            <option value="gujranwala">Gujranwala</option>
+                            <option value="mardan">Mardan</option>
+                            <option value="abbottabad">Abbottabad</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label-text"><i class="fa-solid fa-cloud-sun mr-1"></i> Season</label>
+                        <select id="season-select" class="custom-select">
+                            <option value="">-- Select Season --</option>
+                            <option value="spring">Spring</option>
+                            <option value="summer">Summer</option>
+                            <option value="autumn">Autumn</option>
+                            <option value="winter">Winter</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label-text"><i class="fa-solid fa-layer-group mr-1"></i> Soil Type <span style="color:var(--fg-muted);font-weight:400;text-transform:none;letter-spacing:0">(Optional)</span></label>
+                        <select id="soil-select" class="custom-select">
+                            <option value="">-- Skip if Unknown --</option>
+                            <option value="clay">Clay</option>
+                            <option value="sandy">Sandy</option>
+                            <option value="loamy">Loamy (Best)</option>
+                            <option value="silt">Silt</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-center">
+                    <button id="advise-btn" class="btn-main">
+                        <i class="fa-solid fa-wand-magic-sparkles mr-2"></i>Get Crop Recommendation
+                    </button>
+                </div>
+                <p id="form-error" class="text-center text-sm mt-3 hidden" style="color:#f87171"></p>
+            </section>
+
+            <!-- LOADING -->
+            <div id="loading-section" class="hidden flex flex-col items-center gap-4 py-12">
+                <div class="spinner"></div>
+                <p class="text-sm" style="color:var(--fg-muted)">Analyzing weather and soil data...</p>
+            </div>
+
+            <!-- RESULTS -->
+            <section id="result-section">
+
+                <!-- Weather Card -->
+                <div id="weather-card" class="glass p-5 sm:p-6 mb-6 hidden">
+                    <div class="flex flex-wrap items-center gap-5">
+                        <div class="anim-float text-5xl" id="weather-emoji">🌤️</div>
+                        <div class="flex-1 min-w-[140px]">
+                            <div class="flex items-baseline gap-2 mb-1">
+                                <span class="text-3xl font-bold" id="w-temp">32°C</span>
+                                <span class="text-sm" style="color:var(--fg-muted)" id="w-feels">Feels 34°C</span>
+                            </div>
+                            <div class="text-sm font-medium" id="w-desc">Clear Sky</div>
+                            <div class="text-xs mt-1" style="color:var(--fg-muted)" id="w-city-label">Hyderabad, Sindh</div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-x-5 gap-y-2 text-sm">
+                            <div class="text-center">
+                                <div style="color:var(--fg-muted)" class="text-xs mb-1"><i class="fa-solid fa-droplet mr-1"></i>Humidity</div>
+                                <div class="font-semibold" id="w-humidity">65%</div>
+                            </div>
+                            <div class="text-center">
+                                <div style="color:var(--fg-muted)" class="text-xs mb-1"><i class="fa-solid fa-wind mr-1"></i>Wind</div>
+                                <div class="font-semibold" id="w-wind">12 km/h</div>
+                            </div>
+                            <div class="text-center">
+                                <div style="color:var(--fg-muted)" class="text-xs mb-1"><i class="fa-solid fa-temperature-half mr-1"></i>Real</div>
+                                <div class="font-semibold" id="w-real">30°C</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="weather-note" class="mt-4 p-3 rounded-xl text-sm hidden" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.15);color:#fbbf24"></div>
+                </div>
+
+                <!-- Crop Cards -->
+                <div class="flex items-center gap-3 mb-4">
+                    <h3 class="text-lg font-bold" style="font-family:'Sora'">Top Crop Recommendations</h3>
+                    <div class="flex-1 h-px" style="background:var(--border)"></div>
+                </div>
+                <div id="crops-container" class="grid gap-4 mb-8"></div>
+
+                <!-- Fertilizer Guide -->
+                <div id="fert-section" class="glass glass-gold p-5 sm:p-7 mb-6 hidden">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="tip-icon-box" style="background:rgba(245,158,11,0.12);color:#f59e0b"><i class="fa-solid fa-flask"></i></div>
+                        <div>
+                            <h3 class="text-lg font-bold" style="font-family:'Sora'" id="fert-title">Fertilizer Guide</h3>
+                            <p class="text-xs" style="color:var(--fg-muted)" id="fert-subtitle">Detailed fertilizer plan</p>
+                        </div>
+                    </div>
+                    <div id="fert-content"></div>
+                </div>
+
+                <!-- Farming Tips -->
+                <div id="tips-section" class="glass p-5 sm:p-7 mb-6 hidden">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="tip-icon-box" style="background:rgba(74,222,128,0.1);color:#4ade80"><i class="fa-solid fa-lightbulb"></i></div>
+                        <div>
+                            <h3 class="text-lg font-bold" style="font-family:'Sora'">Farming Tips & Warnings</h3>
+                            <p class="text-xs" style="color:var(--fg-muted)" id="tips-subtitle">Practical advice for best yield</p>
+                        </div>
+                    </div>
+                    <div id="tips-content"></div>
+                </div>
+
+                <!-- Crop Rotation -->
+                <div id="rotation-section" class="glass p-5 sm:p-6 hidden">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="tip-icon-box" style="background:rgba(139,92,246,0.1);color:#a78bfa"><i class="fa-solid fa-rotate"></i></div>
+                        <h3 class="text-lg font-bold" style="font-family:'Sora'">Crop Rotation Suggestion</h3>
+                    </div>
+                    <div id="rotation-content"></div>
+                </div>
+            </section>
+
+        </main>
+
+        <footer class="text-center py-8 text-xs" style="color:var(--fg-muted)">
+            <div class="divider max-w-6xl mx-auto mb-6"></div>
+            <p>AgriSmart Crop Advisory System &mdash; Built with JavaScript, Three.js & Open-Meteo Weather API</p>
+            <p class="mt-1">Designed for Pakistani Agricultural Conditions</p>
+        </footer>
+    </div>
+
+    <!-- 3D Background Scene -->
+    <script type="module">
+        import * as THREE from 'three';
+
+        const canvas = document.getElementById('bg3d');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
+        camera.position.set(0, 0, 30);
+
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        const pCount = 1400;
+        const pGeo = new THREE.BufferGeometry();
+        const pPos = new Float32Array(pCount * 3);
+        const pSizes = new Float32Array(pCount);
+        const pColors = new Float32Array(pCount * 3);
+        const pSpeeds = new Float32Array(pCount);
+
+        const greenC = new THREE.Color(0x4ade80);
+        const goldC = new THREE.Color(0xf59e0b);
+        const whiteC = new THREE.Color(0xc8f0c8);
+
+        for (let i = 0; i < pCount; i++) {
+            pPos[i*3]   = (Math.random() - 0.5) * 80;
+            pPos[i*3+1] = (Math.random() - 0.5) * 60;
+            pPos[i*3+2] = (Math.random() - 0.5) * 50 - 10;
+            pSizes[i] = Math.random() * 2.5 + 0.5;
+            pSpeeds[i] = Math.random() * 0.015 + 0.005;
+            const t = Math.random();
+            const c = t < 0.6 ? greenC : t < 0.85 ? whiteC : goldC;
+            pColors[i*3]   = c.r;
+            pColors[i*3+1] = c.g;
+            pColors[i*3+2] = c.b;
+        }
+        pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+        pGeo.setAttribute('size', new THREE.BufferAttribute(pSizes, 1));
+        pGeo.setAttribute('aColor', new THREE.BufferAttribute(pColors, 3));
+
+        const pMat = new THREE.ShaderMaterial({
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            uniforms: { uIntensity: { value: 1.0 } },
+            vertexShader: `
+                attribute float size;
+                attribute vec3 aColor;
+                varying vec3 vColor;
+                uniform float uIntensity;
+                void main(){
+                    vColor = aColor * uIntensity;
+                    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+                    gl_PointSize = size * (18.0 / -mv.z);
+                    gl_Position = projectionMatrix * mv;
+                }
+            `,
+            fragmentShader: `
+                varying vec3 vColor;
+                void main(){
+                    float d = length(gl_PointCoord - 0.5);
+                    if(d > 0.5) discard;
+                    float a = 1.0 - smoothstep(0.15, 0.5, d);
+                    gl_FragColor = vec4(vColor, a * 0.6);
+                }
+            `
+        });
+        const particles = new THREE.Points(pGeo, pMat);
+        scene.add(particles);
+
+        const dodGeo = new THREE.DodecahedronGeometry(Math.max(0.01, 4.5), 1);
+        const dodMat = new THREE.MeshPhongMaterial({ color: 0x22c55e, wireframe: true, transparent: true, opacity: 0.12 });
+        const dodeca = new THREE.Mesh(dodGeo, dodMat);
+        scene.add(dodeca);
+
+        const icoGeo = new THREE.IcosahedronGeometry(Math.max(0.01, 2.2), 0);
+        const icoMat = new THREE.MeshPhongMaterial({ color: 0xf59e0b, wireframe: true, transparent: true, opacity: 0.18 });
+        const ico = new THREE.Mesh(icoGeo, icoMat);
+        scene.add(ico);
+
+        const torGeo = new THREE.TorusGeometry(Math.max(0.01, 6.5), Math.max(0.001, 0.08), 16, 100);
+        const torMat = new THREE.MeshPhongMaterial({ color: 0x4ade80, transparent: true, opacity: 0.2 });
+        const torus = new THREE.Mesh(torGeo, torMat);
+        torus.rotation.x = Math.PI * 0.5;
+        scene.add(torus);
+
+        const leaves = [];
+        for (let i = 0; i < 12; i++) {
+            const lGeo = new THREE.BufferGeometry();
+            const s = Math.random() * 0.6 + 0.3;
+            const verts = new Float32Array([0, s, 0, -s*0.4, -s*0.5, 0, s*0.4, -s*0.5, 0]);
+            lGeo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+            lGeo.computeVertexNormals();
+            const lMat = new THREE.MeshPhongMaterial({ color: i % 3 === 0 ? 0xf59e0b : 0x4ade80, transparent: true, opacity: 0.22, side: THREE.DoubleSide });
+            const leaf = new THREE.Mesh(lGeo, lMat);
+            leaf.position.set((Math.random()-0.5)*50, (Math.random()-0.5)*35, (Math.random()-0.5)*30 - 5);
+            leaf.userData = { rx: Math.random()*0.01 + 0.003, ry: Math.random()*0.015 + 0.005, floatOffset: Math.random() * Math.PI * 2 };
+            scene.add(leaf);
+            leaves.push(leaf);
+        }
+
+        scene.add(new THREE.AmbientLight(0x4ade80, 0.4));
+        const pl1 = new THREE.PointLight(0x4ade80, 1.5, 80);
+        pl1.position.set(10, 10, 15);
+        scene.add(pl1);
+        const pl2 = new THREE.PointLight(0xf59e0b, 0.8, 60);
+        pl2.position.set(-12, -8, 10);
+        scene.add(pl2);
+
+        let mx = 0, my = 0;
+        window.addEventListener('mousemove', e => {
+            mx = (e.clientX / window.innerWidth - 0.5) * 2;
+            my = (e.clientY / window.innerHeight - 0.5) * 2;
+        });
+
+        let targetIntensity = 1.0;
+        window.addEventListener('agri-intensity', e => { targetIntensity = e.detail; });
+
+        let t = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            t += 0.01;
+            const posArr = pGeo.attributes.position.array;
+            for (let i = 0; i < pCount; i++) {
+                posArr[i*3+1] += pSpeeds[i] * targetIntensity;
+                if (posArr[i*3+1] > 35) { posArr[i*3+1] = -35; posArr[i*3] = (Math.random()-0.5) * 80; }
+            }
+            pGeo.attributes.position.needsUpdate = true;
+            pMat.uniforms.uIntensity.value += (targetIntensity - pMat.uniforms.uIntensity.value) * 0.05;
+            dodeca.rotation.x = t * 0.15; dodeca.rotation.y = t * 0.2;
+            ico.rotation.x = -t * 0.25; ico.rotation.z = t * 0.18;
+            torus.rotation.z = t * 0.08;
+            leaves.forEach(l => { l.rotation.x += l.userData.rx; l.rotation.y += l.userData.ry; l.position.y += Math.sin(t * 2 + l.userData.floatOffset) * 0.012; });
+            camera.position.x += (mx * 3 - camera.position.x) * 0.03;
+            camera.position.y += (-my * 2 - camera.position.y) * 0.03;
+            camera.lookAt(0, 0, 0);
+            pl1.position.x = Math.sin(t * 0.5) * 15; pl1.position.y = Math.cos(t * 0.3) * 10;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+
+    <!-- Main Application Logic -->
+    <script>
+        const cityData = {
+            karachi:      { lat:24.86, lon:67.01, name:'Karachi', province:'Sindh' },
+            lahore:       { lat:31.52, lon:74.36, name:'Lahore', province:'Punjab' },
+            islamabad:    { lat:33.69, lon:73.05, name:'Islamabad', province:'ICT' },
+            hyderabad:    { lat:25.40, lon:68.36, name:'Hyderabad', province:'Sindh' },
+            faisalabad:   { lat:31.45, lon:73.14, name:'Faisalabad', province:'Punjab' },
+            multan:       { lat:30.16, lon:71.52, name:'Multan', province:'Punjab' },
+            peshawar:     { lat:34.01, lon:71.52, name:'Peshawar', province:'KPK' },
+            quetta:       { lat:30.18, lon:66.98, name:'Quetta', province:'Balochistan' },
+            sialkot:      { lat:32.49, lon:74.52, name:'Sialkot', province:'Punjab' },
+            rawalpindi:   { lat:33.57, lon:73.02, name:'Rawalpindi', province:'Punjab' },
+            sukkur:       { lat:27.71, lon:68.86, name:'Sukkur', province:'Sindh' },
+            bahawalpur:   { lat:29.35, lon:71.69, name:'Bahawalpur', province:'Punjab' },
+            sargodha:     { lat:32.07, lon:72.69, name:'Sargodha', province:'Punjab' },
+            gujranwala:   { lat:32.19, lon:74.19, name:'Gujranwala', province:'Punjab' },
+            mardan:       { lat:34.20, lon:72.04, name:'Mardan', province:'KPK' },
+            abbottabad:   { lat:34.17, lon:73.22, name:'Abbottabad', province:'KPK' }
+        };
+
+        const weatherMap = {
+            0:  { emoji:'☀️', desc:'Clear Sky' }, 1:  { emoji:'🌤️', desc:'Mainly Clear' },
+            2:  { emoji:'⛅', desc:'Partly Cloudy' }, 3:  { emoji:'☁️', desc:'Overcast' },
+            45: { emoji:'🌫️', desc:'Foggy' }, 48: { emoji:'🌫️', desc:'Rime Fog' },
+            51: { emoji:'🌦️', desc:'Light Drizzle' }, 53: { emoji:'🌦️', desc:'Moderate Drizzle' },
+            55: { emoji:'🌧️', desc:'Dense Drizzle' }, 61: { emoji:'🌧️', desc:'Slight Rain' },
+            63: { emoji:'🌧️', desc:'Moderate Rain' }, 65: { emoji:'🌧️', desc:'Heavy Rain' },
+            71: { emoji:'🌨️', desc:'Slight Snow' }, 73: { emoji:'🌨️', desc:'Moderate Snow' },
+            75: { emoji:'❄️', desc:'Heavy Snow' }, 80: { emoji:'🌦️', desc:'Rain Showers' },
+            81: { emoji:'🌧️', desc:'Moderate Showers' }, 82: { emoji:'⛈️', desc:'Violent Showers' },
+            95: { emoji:'⛈️', desc:'Thunderstorm' }, 96: { emoji:'⛈️', desc:'Hail Storm' },
+            99: { emoji:'⛈️', desc:'Heavy Hail Storm' }
+        };
+
+        const seasonOrder = ['spring', 'summer', 'autumn', 'winter'];
+        function getNextSeason(s) { return seasonOrder[(seasonOrder.indexOf(s) + 1) % 4]; }
+        function getSeasonLabel(s) { return { spring:'Spring', summer:'Summer', autumn:'Autumn', winter:'Winter' }[s] || s; }
+
+        const cropDB = {
+            spring: {
+                sunflower: {
+                    name:'Sunflower', icon:'🌻',
+                    soil: { clay:2, sandy:4, loamy:5, silt:3 },
+                    water:'Moderate', waterLevel:2,
+                    temp:'18-30°C', tempLow:18, tempHigh:30,
+                    desc:'Sunflower is an excellent spring crop for Pakistani conditions. It performs best in loamy soil with moderate water. It is a high-value oilseed crop with good market demand.',
+                    fert: { base:'DAP - 1 bag (50 kg/acre) at sowing time', top:'Urea - 1 bag (50 kg/acre) in 2 doses at 20 and 40 days', organic:'FYM - 3-4 trolley/acre mixed into soil before sowing' },
+                    tips: ['Sow in February-March for best results', 'Row-to-row spacing should be 2 ft, plant-to-plant 9 inches', 'Irrigate at flowering stage for better seed fill', 'Harvest when back of flower head turns yellow-brown'],
+                    harvest:'100-120 days', pest:'Aphids, cutworm, and downy mildew — monitor regularly during flowering', npk:'10:26:26', rotation:'Wheat or Moong'
+                },
+                watermelon: {
+                    name:'Watermelon', icon:'🍉',
+                    soil: { clay:1, sandy:5, loamy:4, silt:2 },
+                    water:'High', waterLevel:3,
+                    temp:'22-35°C', tempLow:22, tempHigh:35,
+                    desc:'Watermelon thrives in sandy soil during spring season. It needs warm temperatures and consistent watering. Sandy loam is ideal for good fruit development and sweetness.',
+                    fert: { base:'DAP - 40 kg/acre + SOP - 25 kg/acre at sowing', top:'Urea - 50 kg/acre in 2 doses at vine elongation and fruit set', organic:'FYM - 5-6 trolley/acre is highly recommended for sweetness' },
+                    tips: ['Sow in mid-February to early March for summer harvest', 'Trailing method is preferred — give 8-10 ft spacing between rows', 'Reduce watering 7-10 days before harvest for better sweetness', 'Tap the fruit — hollow sound means it is ready to harvest'],
+                    harvest:'85-100 days', pest:'Fruit fly and powdery mildew — use yellow sticky traps and fungicide spray', npk:'8:24:12', rotation:'Moong or Mustard'
+                },
+                tomato: {
+                    name:'Tomato', icon:'🍅',
+                    soil: { clay:2, sandy:3, loamy:5, silt:3 },
+                    water:'Moderate', waterLevel:2,
+                    temp:'18-28°C', tempLow:18, tempHigh:28,
+                    desc:'Tomato is a high-value spring vegetable crop. Loamy soil with good drainage gives the best results. It requires careful management but offers excellent returns.',
+                    fert: { base:'DAP - 1 bag + SOP - 25 kg/acre at transplanting', top:'Urea - 1.5 bags (75 kg/acre) in 3 doses every 15 days', organic:'FYM - 4-5 trolley/acre mixed well into beds before transplanting' },
+                    tips: ['Nursery preparation in January, transplant in February-March', 'Stake or cage the plants for support — prevents fruit rot', 'Prune lower branches to improve air circulation', 'Pick fruits at breaker stage (reddish tinge) for better shelf life'],
+                    harvest:'75-90 days', pest:'Early blight, fruit borer, and whitefly — spray copper-based fungicide preventively', npk:'10:26:26', rotation:'Moong or Onion'
+                },
+                cucumber: {
+                    name:'Cucumber', icon:'🥒',
+                    soil: { clay:1, sandy:4, loamy:5, silt:3 },
+                    water:'Moderate', waterLevel:2,
+                    temp:'20-32°C', tempLow:20, tempHigh:32,
+                    desc:'Cucumber is a fast-growing spring crop ideal for sandy loam soil. It gives quick returns and multiple harvests over a short period.',
+                    fert: { base:'DAP - 30 kg/acre at sowing', top:'Urea - 40 kg/acre in 2 doses at 20 and 35 days', organic:'FYM - 3-4 trolley/acre in raised beds' },
+                    tips: ['Direct sowing in February-March on raised beds', 'Trellis system increases yield by 30-40% and reduces disease', 'Harvest every 2-3 days — over-mature fruits slow production', 'Morning harvest gives better shelf life and crispness'],
+                    harvest:'50-65 days', pest:'Downy mildew and cucumber beetle — avoid wetting leaves during irrigation', npk:'8:24:12', rotation:'Moong or Tomato'
+                }
+            },
+            summer: {
+                rice: {
+                    name:'Rice', icon:'🌾',
+                    soil: { clay:5, sandy:1, loamy:3, silt:5 },
+                    water:'Very High', waterLevel:4,
+                    temp:'25-35°C', tempLow:25, tempHigh:35,
+                    desc:'Rice is the most important summer crop in Pakistan. It grows best in clay or silt soil with standing water throughout the season.',
+                    fert: { base:'DAP - 1 bag (50 kg/acre) at transplanting', top:'Urea - 2 bags (100 kg/acre) in 2 splits at 21 and 45 days after transplanting', organic:'FYM - 4-5 trolley/acre, apply 15 days before transplanting' },
+                    tips: ['Maintain 2-3 inches of standing water continuously after transplanting', 'Nursery is ready in 25-30 days, then transplant to main field', 'Apply insecticide at right time to control stem borer and leaf folder', 'Harvest when 80% of panicles turn golden'],
+                    harvest:'110-120 days', pest:'Stem borer, leaf folder, and rice blast disease — timely spraying is essential', npk:'10:26:26', rotation:'Moong or Lentil'
+                },
+                cotton: {
+                    name:'Cotton', icon:'☁️',
+                    soil: { clay:3, sandy:4, loamy:5, silt:3 },
+                    water:'Moderate', waterLevel:2,
+                    temp:'25-40°C', tempLow:25, tempHigh:40,
+                    desc:'Cotton prefers hot and relatively dry climate. It grows best in loamy soil. Excess water is harmful — well-drained fields are essential.',
+                    fert: { base:'DAP - 1 bag + SOP - 50 kg/acre at sowing', top:'Urea - 1.5 bags (75 kg/acre) in 2 doses at 30 and 60 days', organic:'Compost or FYM 3-4 trolley/acre during soil preparation' },
+                    tips: ['Sow in May-June — late sowing reduces yield significantly', 'Row-to-row 2.5 ft and plant-to-plant 1 ft spacing', 'First picking in October, 3-4 pickings possible', 'Use neem-based insecticide for whitefly control'],
+                    harvest:'150-180 days', pest:'Whitefly, pink bollworm, and mealybug — regular monitoring is critical', npk:'10:26:26', rotation:'Wheat or Gram'
+                },
+                sugarcane: {
+                    name:'Sugarcane', icon:'🎋',
+                    soil: { clay:4, sandy:2, loamy:5, silt:4 },
+                    water:'Very High', waterLevel:4,
+                    temp:'28-38°C', tempLow:28, tempHigh:38,
+                    desc:'Sugarcane is a long-duration crop that grows best in loamy or clay soil with abundant water. Takes 10-14 months to mature.',
+                    fert: { base:'DAP - 2 bags + SOP - 1 bag/acre at planting', top:'Urea - 3 bags (150 kg/acre) in 3 doses every 2 months', organic:'FYM - 8-10 trolley/acre is essential' },
+                    tips: ['Use sett (seed piece) method — 3-bud setts give best germination', 'Earthing up at 3-4 months prevents lodging', 'Ensure proper drainage — waterlogging causes root decay', 'Ratoon crop possible for 2-3 seasons after first harvest'],
+                    harvest:'10-14 months', pest:'Borers, termites, and pyrilla — early detection is important', npk:'12:32:16', rotation:'Wheat or Mustard'
+                },
+                maize: {
+                    name:'Maize', icon:'🌽',
+                    soil: { clay:2, sandy:3, loamy:5, silt:3 },
+                    water:'Moderate', waterLevel:2,
+                    temp:'22-35°C', tempLow:22, tempHigh:35,
+                    desc:'Maize grows best in loamy soil. Fast-growing crop with multiple uses — food, animal feed, and industrial processing.',
+                    fert: { base:'DAP - 1 bag (50 kg/acre) at sowing', top:'Urea - 1.5 bags (75 kg/acre) in 2 doses at 25 and 45 days', organic:'FYM - 3-4 trolley/acre during soil preparation' },
+                    tips: ['Sow in June-July for kharif or February-March for spring', 'Plant-to-plant 8-9 inches, row-to-row 2 ft', 'Extra irrigation at tasseling and silking stage', 'Spray insecticide at cob formation for fall armyworm'],
+                    harvest:'85-100 days', pest:'Fall armyworm and stem borer — especially problematic in kharif season', npk:'10:26:26', rotation:'Wheat or Potato'
+                },
+                bajra: {
+                    name:'Bajra (Millet)', icon:'🌿',
+                    soil: { clay:1, sandy:5, loamy:3, silt:2 },
+                    water:'Low', waterLevel:1,
+                    temp:'25-40°C', tempLow:25, tempHigh:40,
+                    desc:'Bajra is the best crop for sandy and dry areas. Survives on very little water — ideal for Thar desert and rainfed regions.',
+                    fert: { base:'DAP - 50 kg/acre at sowing', top:'Urea - 50 kg/acre, only 1 dose at 30 days', organic:'FYM - 2-3 trolley/acre is optional' },
+                    tips: ['Gives reasonable yield even without much fertilizer in sandy soil', 'Ideal for rainfed areas — minimal irrigation needed', 'Sow in July during monsoon season', 'Use net covers or scarecrows to protect from birds'],
+                    harvest:'75-90 days', pest:'Birds and grasshoppers cause the most damage — insect pressure is low', npk:'8:24:12', rotation:'Gram or Moong'
+                },
+                moong: {
+                    name:'Moong', icon:'🫘',
+                    soil: { clay:2, sandy:4, loamy:4, silt:3 },
+                    water:'Low', waterLevel:1,
+                    temp:'25-35°C', tempLow:25, tempHigh:35,
+                    desc:'Moong is a leguminous crop that naturally fixes nitrogen in the soil. Requires less fertilizer and improves soil health for the next crop.',
+                    fert: { base:'DAP - 40 kg/acre at sowing', top:'No urea needed — plant fixes its own nitrogen', organic:'Rhizobium seed treatment is a must' },
+                    tips: ['Seed treatment with Rhizobium increases yield by 20-30%', 'Sow in July-August during monsoon', 'Only 2-3 light irrigations are sufficient', 'Harvest when pods turn yellow-brown'],
+                    harvest:'60-75 days', pest:'Whitefly and pod borer — neem spray is effective', npk:'0:40:0', rotation:'Wheat or Mustard'
+                }
+            },
+            autumn: {
+                onion: {
+                    name:'Onion', icon:'🧅',
+                    soil: { clay:2, sandy:3, loamy:5, silt:4 },
+                    water:'Moderate', waterLevel:2,
+                    temp:'15-25°C', tempLow:15, tempHigh:25,
+                    desc:'Onion is a high-value autumn crop that performs best in loamy soil. Requires moderate water and careful management at bulb formation stage.',
+                    fert: { base:'DAP - 1 bag + SOP - 50 kg/acre at sowing', top:'Urea - 1 bag (50 kg/acre) in 2 doses at 30 and 50 days', organic:'FYM - 4-5 trolley/acre mixed into soil before bed preparation' },
+                    tips: ['Sow nursery in August, transplant in September-October', 'Raised beds with 4-5 rows per bed give best results', 'Stop irrigation 15-20 days before harvest for better storage', 'Cure bulbs in shade for 7-10 days after harvest'],
+                    harvest:'120-140 days', pest:'Thrips and purple blotch — spray at regular intervals', npk:'10:32:16', rotation:'Wheat or Tomato'
+                },
+                garlic: {
+                    name:'Garlic', icon:'🧄',
+                    soil: { clay:2, sandy:4, loamy:5, silt:3 },
+                    water:'Moderate', waterLevel:2,
+                    temp:'12-22°C', tempLow:12, tempHigh:22,
+                    desc:'Garlic is a profitable autumn crop with long storage life and good market price. Cloves planted in autumn mature by early summer.',
+                    fert: { base:'DAP - 40 kg/acre + SOP - 30 kg/acre at planting', top:'Urea - 40 kg/acre in 2 doses at 30 and 60 days', organic:'FYM - 3-4 trolley/acre mixed into soil before planting' },
+                    tips: ['Plant individual cloves 1.5 inches deep in October-November', 'Spacing: 6 inches between cloves, 8 inches between rows', 'Avoid over-watering — garlic is sensitive to waterlogging', 'Harvest when lower leaves turn yellow and tops fall over'],
+                    harvest:'130-150 days', pest:'Thrips and white rot disease — use disease-free seed cloves', npk:'8:32:16', rotation:'Moong or Tomato'
+                },
+                spinach: {
+                    name:'Spinach', icon:'🥬',
+                    soil: { clay:2, sandy:3, loamy:5, silt:4 },
+                    water:'Moderate', waterLevel:2,
+                    temp:'10-20°C', tempLow:10, tempHigh:20,
+                    desc:'Spinach is a fast-growing leafy vegetable ideal for autumn planting. Provides multiple cuttings. Rich in iron and vitamins with high market demand.',
+                    fert: { base:'DAP - 30 kg/acre at sowing', top:'Urea - 30 kg/acre in 2 doses after each cutting', organic:'FYM - 2-3 trolley/acre in raised beds' },
+                    tips: ['Direct sowing in September-October on raised beds', 'First cutting in 30-35 days, then 2-3 more cuttings possible', 'Light and frequent irrigation gives tender leaves', 'Harvest in early morning for better freshness'],
+                    harvest:'30-35 days (first cutting)', pest:'Leaf miner and aphids — use insecticidal soap or neem spray', npk:'6:20:10', rotation:'Tomato or Onion'
+                },
+                cauliflower: {
+                    name:'Cauliflower', icon:'🥦',
+                    soil: { clay:2, sandy:3, loamy:5, silt:3 },
+                    water:'Moderate', waterLevel:2,
+                    temp:'12-22°C', tempLow:12, tempHigh:22,
+                    desc:'Cauliflower is a premium autumn vegetable requiring careful management. Cool weather is essential for proper head formation.',
+                    fert: { base:'DAP - 1 bag + SOP - 50 kg/acre at transplanting', top:'Urea - 1 bag (50 kg/acre) in 3 doses every 15 days', organic:'FYM - 5-6 trolley/acre — organic matter is critical for curd quality' },
+                    tips: ['Nursery in August, transplant in September-October', 'Tie outer leaves over the curd at egg size to protect from sun', 'Avoid temperature fluctuations — causes buttoning or riciness', 'Harvest when curd is compact, white, and 6-8 inches in diameter'],
+                    harvest:'80-100 days', pest:'Diamondback moth and cabbage aphid — use Bt spray for organic control', npk:'10:26:26', rotation:'Tomato or Spinach'
+                }
+            },
+            winter: {
+                wheat: {
+                    name:'Wheat', icon:'🌾',
+                    soil: { clay:4, sandy:2, loamy:5, silt:4 },
+                    water:'Moderate', waterLevel:2,
+                    temp:'10-25°C', tempLow:10, tempHigh:25,
+                    desc:'Wheat is the most important winter crop in Pakistan. Grows best in loamy soil across all provinces. Punjab alone contributes over 70% of total production.',
+                    fert: { base:'DAP - 1 bag (50 kg/acre) mixed into soil at sowing', top:'Urea - 1.5 bags (75 kg/acre) at crown root stage (25 days) and booting stage (65 days)', organic:'FYM - 2-3 trolley/acre for improved soil health' },
+                    tips: ['Sow between November 1-15 — late sowing reduces yield 15-20%', 'Seed rate: 50 kg/acre using drill method — broadcast gives lower yield', '3-4 irrigations at crown root, tillering, booting, and grain fill', 'Control weeds in first 30 days — wild oat is the main weed'],
+                    harvest:'150-170 days (April)', pest:'Aphids and yellow rust disease — monitor especially in February', npk:'10:26:26', rotation:'Moong or Cotton'
+                },
+                barley: {
+                    name:'Barley', icon:'🌾',
+                    soil: { clay:2, sandy:4, loamy:4, silt:3 },
+                    water:'Low', waterLevel:1,
+                    temp:'5-20°C', tempLow:5, tempHigh:20,
+                    desc:'Barley is ideal for cold and low-water areas. Tolerates salt-affected soil better than most crops. Used for animal feed and brewery.',
+                    fert: { base:'DAP - 40 kg/acre at sowing', top:'Urea - 40 kg/acre, only 1 dose at 30 days', organic:'FYM - 2 trolley/acre is optional' },
+                    tips: ['Can be sown slightly earlier than wheat — October is fine', 'Gives reasonable yield even in salt-affected soil', 'Only 2-3 irrigations sufficient — very water efficient', 'Good demand in animal feed and brewing industry'],
+                    harvest:'130-150 days', pest:'Disease and insect risk is lower compared to wheat', npk:'8:24:12', rotation:'Moong or Bajra'
+                },
+                gram: {
+                    name:'Gram (Chickpea)', icon:'🫘',
+                    soil: { clay:2, sandy:3, loamy:5, silt:3 },
+                    water:'Low', waterLevel:1,
+                    temp:'10-25°C', tempLow:10, tempHigh:25,
+                    desc:'Gram is a leguminous winter crop that improves soil nitrogen naturally. Performs well even in rainfed conditions. High protein content makes it nutritionally valuable.',
+                    fert: { base:'DAP - 40 kg/acre + SOP - 20 kg/acre at sowing', top:'No urea needed — plant fixes its own nitrogen', organic:'Rhizobium seed treatment + FYM 2 trolley/acre' },
+                    tips: ['Best sowing window: October 15 to November 15', 'Rhizobium seed treatment is essential for good nodulation', 'Only 1-2 irrigations needed — works in rainfed areas', 'Maintain 12-15 inch plant spacing for better flowering'],
+                    harvest:'120-140 days', pest:'Pod borer and wilt disease — seed treatment helps control wilt', npk:'0:40:20', rotation:'Cotton or Rice'
+                },
+                mustard: {
+                    name:'Mustard', icon:'🌻',
+                    soil: { clay:3, sandy:3, loamy:5, silt:4 },
+                    water:'Moderate', waterLevel:2,
+                    temp:'10-25°C', tempLow:10, tempHigh:25,
+                    desc:'Mustard grows well in loamy and clay soil. Important oilseed crop with good earning potential. Mustard greens are also a popular winter vegetable.',
+                    fert: { base:'DAP - 40 kg/acre + SOP - 20 kg/acre at sowing', top:'Urea - 40 kg/acre at rosette stage (30 days)', organic:'FYM - 2 trolley/acre mixed into soil' },
+                    tips: ['Sow in first week of October — early sowing is better', 'Line sowing: row-to-row 1.5 ft, plant-to-plant 6 inches', 'Extra irrigation at flowering stage (January) increases yield', 'Harvest when pods turn yellow-brown to avoid seed shattering'],
+                    harvest:'130-150 days', pest:'Aphids and sawfly — spray is essential in December-January', npk:'8:32:16', rotation:'Moong or Bajra'
+                },
+                masoor: {
+                    name:'Lentil', icon:'🫘',
+                    soil: { clay:2, sandy:3, loamy:5, silt:3 },
+                    water:'Low', waterLevel:1,
+                    temp:'10-22°C', tempLow:10, tempHigh:22,
+                    desc:'Lentil grows best in loamy soil with minimal water requirements. Protein-rich pulse with good market demand. Fixes nitrogen for next crop.',
+                    fert: { base:'DAP - 30 kg/acre at sowing', top:'No urea needed — legume crop, fixes its own nitrogen', organic:'Rhizobium inoculation as seed treatment' },
+                    tips: ['Sow in October-November', 'Seed rate: 12-15 kg/acre — excess seed increases competition', 'Light loamy soil gives better results', 'Harvest when mature pods turn black'],
+                    harvest:'110-130 days', pest:'Pod borer and rust disease — timely spray is important', npk:'0:30:0', rotation:'Rice or Maize'
+                },
+                potato: {
+                    name:'Potato', icon:'🥔',
+                    soil: { clay:2, sandy:4, loamy:5, silt:3 },
+                    water:'Moderate', waterLevel:2,
+                    temp:'15-25°C', tempLow:15, tempHigh:25,
+                    desc:'Potato grows best in loamy or sandy soil where tubers develop freely. Soft soil is essential for proper tuber formation — clay soil causes misshapen potatoes.',
+                    fert: { base:'DAP - 1 bag + SOP - 1 bag/acre at planting', top:'Urea - 1 bag (50 kg/acre) in 2 doses at 25 and 45 days', organic:'FYM - 5-6 trolley/acre is essential' },
+                    tips: ['Plant in September-October for winter harvest', 'Use 25-30 g seed pieces with 2-3 eyes each', 'Earthing up at 25-30 days keeps tubers covered', 'Harvest when leaves turn yellow — green means immature'],
+                    harvest:'90-110 days', pest:'Late blight is the most dangerous disease — preventive fungicide is a must', npk:'10:26:26', rotation:'Moong or Maize'
+                }
+            }
+        };
+
+        function showToast(msg, type) {
+            const t = document.createElement('div');
+            t.className = 'toast-box toast-' + type;
+            t.innerHTML = '<i class="fa-solid ' + (type==='err'?'fa-circle-xmark':type==='ok'?'fa-circle-check':'fa-circle-info') + ' mr-2"></i>' + msg;
+            document.body.appendChild(t);
+            requestAnimationFrame(() => t.classList.add('show'));
+            setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 3500);
+        }
+
+        function getCrops(season, soil, weatherTemp) {
+            const crops = cropDB[season];
+            if (!crops) return [];
+            const scored = Object.entries(crops).map(([key, c]) => {
+                let score = soil ? (c.soil[soil] || 3) : 3;
+                if (weatherTemp !== null) {
+                    if (weatherTemp >= c.tempLow && weatherTemp <= c.tempHigh) score += 1.5;
+                    else if (weatherTemp >= c.tempLow - 5 && weatherTemp <= c.tempHigh + 5) score += 0.5;
+                    else if (weatherTemp < c.tempLow - 10 || weatherTemp > c.tempHigh + 10) score -= 1.5;
+                }
+                const pct = Math.min(98, Math.max(30, Math.round((score / 6.5) * 100)));
+                return { key, ...c, score: pct };
+            });
+            scored.sort((a, b) => b.score - a.score);
+            return scored.slice(0, 3);
+        }
+
+        async function fetchWeather(cityKey) {
+            const city = cityData[cityKey];
+            if (!city) return null;
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,apparent_temperature,weather_code&timezone=auto`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('API Error');
+                const data = await res.json();
+                return { temp: data.current.temperature_2m, feels: data.current.apparent_temperature, humidity: data.current.relative_humidity_2m, wind: data.current.wind_speed_10m, code: data.current.weather_code, cityName: city.name, province: city.province };
+            } catch (e) { return null; }
+        }
+
+        function renderWeather(w) {
+            const card = document.getElementById('weather-card');
+            card.classList.remove('hidden'); card.classList.add('anim-up');
+            const wm = weatherMap[w.code] || { emoji:'🌡️', desc:'Unknown' };
+            document.getElementById('weather-emoji').textContent = wm.emoji;
+            document.getElementById('w-temp').textContent = Math.round(w.temp) + '°C';
+            document.getElementById('w-feels').textContent = 'Feels ' + Math.round(w.feels) + '°C';
+            document.getElementById('w-desc').textContent = wm.desc;
+            document.getElementById('w-city-label').textContent = w.cityName + ', ' + w.province;
+            document.getElementById('w-humidity').textContent = w.humidity + '%';
+            document.getElementById('w-wind').textContent = Math.round(w.wind) + ' km/h';
+            document.getElementById('w-real').textContent = Math.round(w.temp) + '°C';
+            const note = document.getElementById('weather-note');
+            if (w.temp > 38) { note.classList.remove('hidden'); note.innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1"></i> Extreme heat detected (' + Math.round(w.temp) + '°C). Prefer heat-tolerant crops and avoid afternoon irrigation.'; }
+            else if (w.humidity > 85) { note.classList.remove('hidden'); note.innerHTML = '<i class="fa-solid fa-droplet mr-1"></i> Very high humidity (' + w.humidity + '%). Risk of fungal diseases — apply preventive fungicide and ensure proper drainage.'; }
+            else if (w.temp < 8) { note.classList.remove('hidden'); note.innerHTML = '<i class="fa-solid fa-snowflake mr-1"></i> Very cold conditions (' + Math.round(w.temp) + '°C). Choose only cold-hardy crops — frost-sensitive crops may suffer damage.'; }
+            else { note.classList.add('hidden'); }
+        }
+
+        function renderCrops(crops) {
+            const container = document.getElementById('crops-container');
+            container.innerHTML = '';
+            const rankColors = ['#f59e0b','#94a3b8','#b45309'];
+            const rankBgs = ['rgba(245,158,11,0.15)','rgba(148,163,184,0.1)','rgba(180,83,9,0.1)'];
+            const barColors = ['linear-gradient(90deg,#f59e0b,#fbbf24)','linear-gradient(90deg,#6ee7b7,#4ade80)','linear-gradient(90deg,#86efac,#22c55e)'];
+            crops.forEach((c, i) => {
+                const card = document.createElement('div');
+                card.className = 'glass p-5 sm:p-6 anim-up d' + (i+1);
+                if (i === 0) card.classList.add('glass-gold');
+                const waterIcons = Array(c.waterLevel).fill('<i class="fa-solid fa-droplet text-blue-400 text-xs"></i>').join(' ') +
+                    Array(4 - c.waterLevel).fill('<i class="fa-solid fa-droplet text-xs" style="color:rgba(74,222,128,0.15)"></i>').join(' ');
+                card.innerHTML = `
+                    <div class="flex items-start gap-4 mb-4">
+                        <div class="rank-badge" style="background:${rankBgs[i]};color:${rankColors[i]};border:1.5px solid ${rankColors[i]}30">${i+1}</div>
+                        <div class="flex-1"><div class="flex items-center gap-2 flex-wrap"><span class="text-2xl">${c.icon}</span><h4 class="text-lg font-bold" style="font-family:'Sora'">${c.name}</h4></div></div>
+                        <div class="text-right"><div class="text-xl font-extrabold" style="color:${rankColors[i]};font-family:'Sora'">${c.score}%</div><div class="text-xs" style="color:var(--fg-muted)">Suitability</div></div>
+                    </div>
+                    <div class="suit-bar mb-4"><div class="suit-fill" style="width:0%;background:${barColors[i]}"></div></div>
+                    <p class="text-sm mb-4" style="color:var(--fg-muted);line-height:1.7">${c.desc}</p>
+                    <div class="flex flex-wrap gap-4 text-sm">
+                        <div class="flex items-center gap-2"><i class="fa-solid fa-temperature-half" style="color:#fb923c"></i><span>${c.temp}</span></div>
+                        <div class="flex items-center gap-2">${waterIcons}<span style="color:var(--fg-muted)">${c.water}</span></div>
+                        <div class="flex items-center gap-2"><i class="fa-solid fa-clock" style="color:#a78bfa"></i><span>${c.harvest}</span></div>
+                    </div>`;
+                container.appendChild(card);
+                requestAnimationFrame(() => { setTimeout(() => { card.querySelector('.suit-fill').style.width = c.score + '%'; }, 200 + i * 150); });
+            });
+        }
+
+        function renderFertilizer(crop) {
+            const section = document.getElementById('fert-section');
+            section.classList.remove('hidden'); section.classList.add('anim-up', 'd3');
+            document.getElementById('fert-title').textContent = 'Fertilizer Guide — ' + crop.name;
+            document.getElementById('fert-subtitle').textContent = 'NPK Ratio: ' + crop.npk;
+            document.getElementById('fert-content').innerHTML = `
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div class="p-4 rounded-xl" style="background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.1)"><div class="flex items-center gap-2 mb-2"><i class="fa-solid fa-layer-group text-green-400 text-sm"></i><span class="text-sm font-bold" style="font-family:'Sora'">Base Fertilizer</span></div><p class="text-sm" style="color:var(--fg-muted);line-height:1.7">${crop.fert.base}</p></div>
+                    <div class="p-4 rounded-xl" style="background:rgba(96,165,250,0.06);border:1px solid rgba(96,165,250,0.1)"><div class="flex items-center gap-2 mb-2"><i class="fa-solid fa-arrow-trend-up text-blue-400 text-sm"></i><span class="text-sm font-bold" style="font-family:'Sora'">Top Dressing</span></div><p class="text-sm" style="color:var(--fg-muted);line-height:1.7">${crop.fert.top}</p></div>
+                    <div class="p-4 rounded-xl" style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.1)"><div class="flex items-center gap-2 mb-2"><i class="fa-solid fa-leaf text-amber-400 text-sm"></i><span class="text-sm font-bold" style="font-family:'Sora'">Organic Option</span></div><p class="text-sm" style="color:var(--fg-muted);line-height:1.7">${crop.fert.organic}</p></div>
+                </div>
+                <div class="mt-4 flex flex-wrap gap-2">
+                    <span class="fert-tag" style="background:rgba(74,222,128,0.1);color:#4ade80;border:1px solid rgba(74,222,128,0.15)">NPK: ${crop.npk}</span>
+                    <span class="fert-tag" style="background:rgba(96,165,250,0.1);color:#60a5fa;border:1px solid rgba(96,165,250,0.15)"><i class="fa-solid fa-droplet mr-1"></i>${crop.water}</span>
+                    <span class="fert-tag" style="background:rgba(168,85,247,0.1);color:#c084fc;border:1px solid rgba(168,85,247,0.15)"><i class="fa-solid fa-clock mr-1"></i>${crop.harvest}</span>
+                </div>`;
+        }
+
+        function renderTips(crop) {
+            const section = document.getElementById('tips-section');
+            section.classList.remove('hidden'); section.classList.add('anim-up', 'd4');
+            document.getElementById('tips-subtitle').textContent = 'Practical tips for ' + crop.name;
+            let html = '<div class="grid gap-1">';
+            crop.tips.forEach(tip => { html += `<div class="tip-row"><div class="tip-icon-box" style="background:rgba(74,222,128,0.08);color:#4ade80"><i class="fa-solid fa-check"></i></div><p class="text-sm" style="color:var(--fg-muted);line-height:1.6">${tip}</p></div>`; });
+            html += `</div><div class="divider"></div><div class="tip-row"><div class="tip-icon-box" style="background:rgba(248,113,113,0.08);color:#f87171"><i class="fa-solid fa-bug"></i></div><div><p class="text-sm font-semibold" style="color:#fca5a5">Pest & Disease Warning</p><p class="text-sm" style="color:var(--fg-muted);line-height:1.6">${crop.pest}</p></div></div>`;
+            document.getElementById('tips-content').innerHTML = html;
+        }
+
+        function renderRotation(crop, season) {
+            const section = document.getElementById('rotation-section');
+            section.classList.remove('hidden'); section.classList.add('anim-up', 'd5');
+            const nextSeason = getNextSeason(season);
+            const nextLabel = getSeasonLabel(nextSeason);
+            const curLabel = getSeasonLabel(season);
+            const rotCrop = crop.rotation || 'Wheat';
+            let rotData = null;
+            const nextCrops = cropDB[nextSeason];
+            if (nextCrops) { for (const [k, v] of Object.entries(nextCrops)) { if (v.name.includes(rotCrop) || rotCrop.includes(v.name)) { rotData = v; break; } } }
+            const rotIcon = rotData ? rotData.icon : '🔄';
+            const isLegume = rotCrop === 'Moong' || rotCrop === 'Gram' || rotCrop === 'Lentil';
+            const extra = isLegume ? ' This is a leguminous crop that fixes nitrogen in the soil — saving on fertilizer costs for the following crop.' : '';
+            document.getElementById('rotation-content').innerHTML = `
+                <div class="flex flex-wrap items-center gap-4">
+                    <div class="flex items-center gap-3 px-4 py-3 rounded-xl" style="background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.12)"><span class="text-2xl">${crop.icon}</span><div><div class="text-sm font-bold">${crop.name}</div><div class="text-xs" style="color:var(--fg-muted)">Current (${curLabel})</div></div></div>
+                    <div class="text-2xl" style="color:#a78bfa"><i class="fa-solid fa-arrow-right"></i></div>
+                    <div class="flex items-center gap-3 px-4 py-3 rounded-xl" style="background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.12)"><span class="text-2xl">${rotIcon}</span><div><div class="text-sm font-bold">${rotCrop}</div><div class="text-xs" style="color:var(--fg-muted)">Next Season (${nextLabel})</div></div></div>
+                </div>
+                <p class="text-sm mt-3" style="color:var(--fg-muted);line-height:1.6"><i class="fa-solid fa-circle-info mr-1" style="color:#a78bfa"></i>Crop rotation maintains soil fertility, breaks pest cycles, and ensures earning potential in every season.${extra}</p>`;
+        }
+
+        const adviseBtn = document.getElementById('advise-btn');
+        const formError = document.getElementById('form-error');
+
+        adviseBtn.addEventListener('click', async () => {
+            const city = document.getElementById('city-select').value;
+            const season = document.getElementById('season-select').value;
+            const soil = document.getElementById('soil-select').value;
+            if (!city) { formError.textContent = 'Please select a city'; formError.classList.remove('hidden'); return; }
+            if (!season) { formError.textContent = 'Please select a season'; formError.classList.remove('hidden'); return; }
+            formError.classList.add('hidden');
+            document.getElementById('loading-section').classList.remove('hidden');
+            document.getElementById('result-section').classList.remove('visible');
+            adviseBtn.disabled = true;
+            window.dispatchEvent(new CustomEvent('agri-intensity', { detail: 2.5 }));
+            const weatherPromise = fetchWeather(city);
+            await new Promise(r => setTimeout(r, 800));
+            let weatherData = null;
+            try { weatherData = await weatherPromise; } catch(e) {}
+            let weatherTemp = weatherData ? weatherData.temp : null;
+            const crops = getCrops(season, soil || null, weatherTemp);
+            if (crops.length === 0) {
+                showToast('No recommendations found — please check season and soil type', 'err');
+                document.getElementById('loading-section').classList.add('hidden');
+                adviseBtn.disabled = false;
+                window.dispatchEvent(new CustomEvent('agri-intensity', { detail: 1.0 }));
+                return;
+            }
+            if (weatherData) { renderWeather(weatherData); } else { document.getElementById('weather-card').classList.add('hidden'); }
+            renderCrops(crops);
+            renderFertilizer(crops[0]);
+            renderTips(crops[0]);
+            renderRotation(crops[0], season);
+            document.getElementById('loading-section').classList.add('hidden');
+            document.getElementById('result-section').classList.add('visible');
+            adviseBtn.disabled = false;
+            window.dispatchEvent(new CustomEvent('agri-intensity', { detail: 1.0 }));
+            showToast('Crop recommendations are ready!', 'ok');
+            setTimeout(() => { document.getElementById('result-section').scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 300);
+        });
+    </script>
+</body>
+</html>
